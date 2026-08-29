@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏷️ Expiry Scanner</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; background: #f9f9f9; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; text-align: center; }
+        video { width: 100%; border-radius: 8px; background: #000; display: block; }
+        button { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-snap { background: #ff4b4b; color: white; }
+        .btn-analyze { background: #2e7d32; color: white; }
+        .btn-clear { background: #757575; color: white; }
+        .btn-save { background: #0288d1; color: white; margin-top: 15px; }
+        .queue { display: flex; gap: 8px; overflow-x: auto; margin-top: 12px; padding-bottom: 8px; }
+        .queue img { width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; }
+        .form-group { margin-top: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 4px; }
+        input, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; }
+        .status { margin-top: 10px; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🏷️ Expiry Scanner</h2>
+
+    <!-- Native Live Rear Camera -->
+    <video id="camera" autoplay playsinline></video>
+    <button class="btn-snap" id="snapBtn">📸 Snap Photo</button>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <!-- Photo Queue -->
+    <div id="queueText" style="display:none; margin-top: 15px; font-weight: bold;">Captured Photos Queue:</div>
+    <div class="queue" id="photoQueue"></div>
+
+    <button class="btn-analyze" id="analyzeBtn" style="display:none;">🤖 Analyze Queue with LLM</button>
+    <button class="btn-clear" id="clearBtn" style="display:none;">🗑️ Clear Queue</button>
+
+    <div class="status" id="statusMsg"></div>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+    <!-- Form Section -->
+    <div class="form-group">
+        <label>Item Name</label>
+        <input type="text" id="itemName" placeholder="e.g., HL Milk">
+    </div>
+    <div class="form-group">
+        <label>Date Type</label>
+        <select id="dateType">
+            <option value="Expiry">Expiry</option>
+            <option value="Best Before">Best Before</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>Expiry Date (YYYY-MM-DD)</label>
+        <input type="text" id="expiryDate" placeholder="YYYY-MM-DD">
+    </div>
+
+    <button class="btn-save" id="saveBtn">➕ Save Item to Inventory</button>
+</div>
+
+<script>
+    const RENDER_API_URL = "https://expiry-date-tracker.onrender.com";
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const photoQueue = document.getElementById('photoQueue');
+    const statusMsg = document.getElementById('statusMsg');
+    
+    let capturedPhotos = []; // Holds base64 strings
+
+    // 1. Initialize Native Mobile Camera (Forced Rear Camera)
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } })
+        .then(stream => { video.srcObject = stream; })
+        .catch(err => { statusMsg.innerText = "Error accessing camera: " + err; });
+
+    // 2. Snap Frame and Queue
+    document.getElementById('snapBtn').addEventListener('click', () => {
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        
+        const b64Data = canvas.toDataURL('image/jpeg', 0.85);
+        capturedPhotos.push(b64Data);
+
+        // Append thumbnail
+        const img = document.createElement('img');
+        img.src = b64Data;
+        photoQueue.appendChild(img);
+
+        // Toggle UI
+        document.getElementById('queueText').style.display = 'block';
+        document.getElementById('analyzeBtn').style.display = 'block';
+        document.getElementById('clearBtn').style.display = 'block';
+    });
+
+    // 3. Clear Queue
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        capturedPhotos = [];
+        photoQueue.innerHTML = '';
+        document.getElementById('queueText').style.display = 'none';
+        document.getElementById('analyzeBtn').style.display = 'none';
+        document.getElementById('clearBtn').style.display = 'none';
+        statusMsg.innerText = '';
+    });
+
+    // 4. Send Photos to Render LLM API
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+        statusMsg.innerText = "⏳ Analyzing photos with Gemini LLM...";
+        
+        // Strip data header prefix before sending
+        const cleanB64 = capturedPhotos.map(p => p.split(',')[1]);
+
+        try {
+            const res = await fetch(`${RENDER_API_URL}/analyze-label`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ images_b64: cleanB64 })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('itemName').value = data.item_name || '';
+                document.getElementById('dateType').value = data.date_type || 'Expiry';
+                document.getElementById('expiryDate').value = data.expiry_date || '';
+                statusMsg.innerText = "✨ Label analyzed successfully!";
+            } else {
+                statusMsg.innerText = `Analysis failed (Status ${res.status})`;
+            }
+        } catch (err) {
+            statusMsg.innerText = "Connection error to Render API.";
+        }
+    });
+
+    // 5. Save Item
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const name = document.getElementById('itemName').value;
+        const dateType = document.getElementById('dateType').value;
+        const expiry = document.getElementById('expiryDate').value;
+
+        if (!name || !expiry) {
+            alert("Please fill in both name and expiry date.");
+            return;
+        }
+
+        statusMsg.innerText = "Saving item...";
+        try {
+            const res = await fetch(`${RENDER_API_URL}/items`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name, date_type: dateType, expiry_date: expiry })
+            });
+
+            if (res.status === 201) {
+                statusMsg.innerText = "✅ Saved successfully!";
+                document.getElementById('itemName').value = '';
+                document.getElementById('expiryDate').value = '';
+                document.getElementById('clearBtn').click();
+            } else {
+                statusMsg.innerText = "Failed to save item.";
+            }
+        } catch (err) {
+            statusMsg.innerText = "Error connecting to server.";
+        }
+    });
+</script>
+</body>
+</html>
