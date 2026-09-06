@@ -22,6 +22,9 @@
         .status { margin-top: 10px; font-weight: bold; text-align: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         th, td { padding: 8px; border: 1px solid #ddd; }
+        .quick-add-group {display: flex;gap: 8px;margin-top: 6px;}
+        .btn-quick {flex: 1; padding: 8px;margin-top: 0; font-size: 14px;font-weight: 600; background: #e3f2fd; color: #0288d1; border: 1px solid #b3e5fc; border-radius: 6px;}
+        .btn-quick:hover {background: #b3e5fc;}
     </style>
 </head>
 <body>
@@ -157,6 +160,32 @@
             statusMsg.innerText = "Connection error to Render API.";
         }
     });
+
+    function addTime(unit, amount) {
+        const input = document.getElementById('expiryDate');
+        let baseDate = new Date();
+
+        // If an existing valid date is already in the input, start from that date instead of today
+        if (input.value && !isNaN(Date.parse(input.value))) {
+            // Appending T00:00:00 avoids timezone offset issues when parsing YYYY-MM-DD strings
+            baseDate = new Date(input.value + 'T00:00:00');
+        }
+
+        if (unit === 'days') {
+            baseDate.setDate(baseDate.getDate() + amount);
+        } else if (unit === 'weeks') {
+            baseDate.setDate(baseDate.getDate() + (amount * 7));
+        } else if (unit === 'months') {
+            baseDate.setMonth(baseDate.getMonth() + amount);
+        }
+
+        // Format output to YYYY-MM-DD using local time coordinates
+        const year = baseDate.getFullYear();
+        const month = String(baseDate.getMonth() + 1).padStart(2, '0');
+        const day = String(baseDate.getDate()).padStart(2, '0');
+
+        input.value = `${year}-${month}-${day}`;
+    }
 
     // 5. Save Item
     document.getElementById('saveBtn').addEventListener('click', async () => {
