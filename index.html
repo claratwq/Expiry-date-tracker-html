@@ -64,7 +64,7 @@
     </div>
     <div class="form-group">
         <label>Expiry Date (YYYY-MM-DD)</label>
-        <input type="text" id="expiryDate" placeholder="YYYY-MM-DD">
+        <input type="date" id="expiryDate">
         <div class="quick-add-group">
             <button type="button" class="btn-quick" onclick="addTime('days', 1)">+1 Day</button>
             <button type="button" class="btn-quick" onclick="addTime('weeks', 1)">+1 Week</button>
@@ -173,9 +173,7 @@
         const input = document.getElementById('expiryDate');
         let baseDate = new Date();
 
-        // If an existing valid date is already in the input, start from that date instead of today
         if (input.value && !isNaN(Date.parse(input.value))) {
-            // Appending T00:00:00 avoids timezone offset issues when parsing YYYY-MM-DD strings
             baseDate = new Date(input.value + 'T00:00:00');
         }
 
@@ -187,21 +185,29 @@
             baseDate.setMonth(baseDate.getMonth() + amount);
         }
 
-        // Format output to YYYY-MM-DD using local time coordinates
         const year = baseDate.getFullYear();
         const month = String(baseDate.getMonth() + 1).padStart(2, '0');
         const day = String(baseDate.getDate()).padStart(2, '0');
 
         input.value = `${year}-${month}-${day}`;
+        
+        // Notify the browser calendar UI to update
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function resetToToday() {
+        const input = document.getElementById('expiryDate');
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
 
-        document.getElementById('expiryDate').value = `${year}-${month}-${day}`;
+        input.value = `${year}-${month}-${day}`;
+        
+        // Notify the browser calendar UI to update
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     // 5. Save Item
