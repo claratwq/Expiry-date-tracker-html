@@ -63,6 +63,11 @@
     <div class="form-group">
         <label>Expiry Date (YYYY-MM-DD)</label>
         <input type="text" id="expiryDate" placeholder="YYYY-MM-DD">
+        <div class="quick-add-group">
+            <button type="button" class="btn-quick" onclick="addTime('days', 1)">+1 Day</button>
+            <button type="button" class="btn-quick" onclick="addTime('weeks', 1)">+1 Week</button>
+            <button type="button" class="btn-quick" onclick="addTime('months', 1)">+1 Month</button>
+        </div>
     </div>
 
     <button class="btn-save" id="saveBtn">➕ Save Item to Inventory</button>
